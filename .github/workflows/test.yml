@@ -41,18 +41,15 @@ jobs:
       - name: Validate WinGet gaming configuration
         shell: pwsh
         run: |
-          if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
-            winget configure --enable --disable-interactivity
-            if ($LASTEXITCODE -ne 0) { throw "Could not enable WinGet Configuration components." }
-
-            winget configure validate -f .\.config\configuration.winget
-            if ($LASTEXITCODE -ne 0) { throw "Gaming WinGet Configuration validation failed." }
-
-            winget configure validate -f .\.config\office.winget
-            if ($LASTEXITCODE -ne 0) { throw "Office WinGet Configuration validation failed." }
-          } else {
-            Write-Host "winget unavailable on runner; validation skipped."
+          if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+            throw "winget.exe is unavailable on the test runner."
           }
+
+          winget configure validate -f .\.config\configuration.winget
+          if ($LASTEXITCODE -ne 0) { throw "Gaming WinGet Configuration validation failed." }
+
+          winget configure validate -f .\.config\office.winget
+          if ($LASTEXITCODE -ne 0) { throw "Office WinGet Configuration validation failed." }
 
   windows-powershell-parser:
     runs-on: windows-latest
