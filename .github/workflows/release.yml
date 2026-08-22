@@ -24,18 +24,27 @@ jobs:
           Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
 
-      - name: Update WinGet for DSC v3 validation
+      - name: Pin known-good WinGet for DSC v3 validation
         shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           Install-PackageProvider -Name NuGet -Force | Out-Null
           Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
           Import-Module Microsoft.WinGet.Client
-          Repair-WinGetPackageManager -Force -Latest
+          Repair-WinGetPackageManager -Version "1.28.240" -Force
           $version = winget --version
           if ($LASTEXITCODE -ne 0) {
-            throw "WinGet update failed."
+            throw "WinGet pin failed."
+          }
+          if ($version -ne 'v1.28.240') {
+            throw "Expected WinGet v1.28.240, got $version"
+          }
+          winget configure --enable
+          if ($LASTEXITCODE -ne 0) {
+            throw "WinGet Configuration could not be enabled."
+          }
+          winget install Microsoft.DSC --accept-source-agreements --accept-package-agreements --disable-interactivity
+          if ($LASTEXITCODE -ne 0) {
+            throw "Microsoft.DSC prerequisite installation failed."
           }
           Write-Host "Validating with WinGet $version"
 
