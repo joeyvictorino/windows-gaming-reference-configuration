@@ -46,6 +46,18 @@ Describe 'Gaming application desired state' {
         $script:ConfigText | Should -Match 'Microsoft\.WinGet/Package'
     }
 
+    It 'handles Battle.net outside the generic DSC package set' {
+        $battleNet = $script:PackageData.Packages |
+            Where-Object { $_.Id -eq 'Blizzard.BattleNet' } |
+            Select-Object -First 1
+
+        $battleNet | Should -Not -BeNullOrEmpty
+        $battleNet.InstallStrategy | Should -Be 'WinGetExplicitLocation'
+        $battleNet.InstallLocation | Should -Be '%ProgramFiles(x86)%\Battle.net'
+        $battleNet.DetectionPath | Should -Be '%ProgramFiles(x86)%\Battle.net\Battle.net.exe'
+        $script:ConfigText | Should -Not -Match 'Blizzard\.BattleNet'
+    }
+
     It 'does not use the proof-of-concept DSC registry resource' {
         $script:ConfigText | Should -Not -Match 'Microsoft\.Windows/Registry'
     }
