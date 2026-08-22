@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a WGRC configuration defect
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include passwords, recovery keys, license keys or tokens."
+  - type: input
+    id: version
+    attributes: { label: WGRC version/commit }
+    validations: { required: true }
+  - type: input
+    id: windows
+    attributes: { label: Windows edition/release/build }
+    validations: { required: true }
+  - type: input
+    id: hardware
+    attributes: { label: CPU / GPU / system model }
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options: [Audit, Plan, Apply, Verify, Restore, Games]
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes: { label: Actual behavior }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Reproduction steps }
+    validations: { required: true }

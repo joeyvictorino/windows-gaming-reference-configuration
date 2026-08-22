@@ -1,0 +1,15 @@
+$schema: https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json
+metadata:
+  winget:
+    processor:
+      identifier: dscv3
+
+resources:
+  - type: Microsoft.WinGet/Package
+    name: MicrosoftOffice
+    properties:
+      id: Microsoft.Office
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Microsoft Office / Microsoft 365 desktop applications

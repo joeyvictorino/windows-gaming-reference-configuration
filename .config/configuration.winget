@@ -1,0 +1,105 @@
+$schema: https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json
+metadata:
+  winget:
+    processor:
+      identifier: dscv3
+
+resources:
+  - type: Microsoft.WinGet/Package
+    name: SevenZip
+    properties:
+      id: 7zip.7zip
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install 7-Zip
+
+  - type: Microsoft.WinGet/Package
+    name: MPV
+    properties:
+      id: shinchiro.mpv
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install mpv
+
+  - type: Microsoft.WinGet/Package
+    name: Everything
+    properties:
+      id: voidtools.Everything
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Everything
+
+  - type: Microsoft.WinGet/Package
+    name: PowerToys
+    properties:
+      id: Microsoft.PowerToys
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Microsoft PowerToys
+
+  - type: Microsoft.WinGet/Package
+    name: Playnite
+    properties:
+      id: Playnite.Playnite
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Playnite
+
+  - type: Microsoft.WinGet/Package
+    name: Discord
+    properties:
+      id: Discord.Discord
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Discord
+
+  - type: Microsoft.WinGet/Package
+    name: Steam
+    properties:
+      id: Valve.Steam
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Steam
+
+  - type: Microsoft.WinGet/Package
+    name: EA
+    properties:
+      id: ElectronicArts.EADesktop
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install EA app
+
+  - type: Microsoft.WinGet/Package
+    name: Epic
+    properties:
+      id: EpicGames.EpicGamesLauncher
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Epic Games Launcher
+
+  - type: Microsoft.WinGet/Package
+    name: Ubisoft
+    properties:
+      id: Ubisoft.Connect
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Ubisoft Connect; fail safely on package-integrity mismatch
+
+  - type: Microsoft.WinGet/Package
+    name: BattleNet
+    properties:
+      id: Blizzard.BattleNet
+      source: winget
+      useLatest: true
+    metadata:
+      description: Install Battle.net

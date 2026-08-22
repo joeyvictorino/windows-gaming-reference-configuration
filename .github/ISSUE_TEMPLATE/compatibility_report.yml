@@ -1,0 +1,38 @@
+name: Game compatibility report
+description: Report launcher/game/anti-cheat compatibility
+title: "[Compatibility]: "
+body:
+  - type: input
+    id: version
+    attributes: { label: WGRC version/commit }
+    validations: { required: true }
+  - type: input
+    id: windows
+    attributes: { label: Windows edition/build }
+    validations: { required: true }
+  - type: input
+    id: hardware
+    attributes: { label: CPU / GPU }
+    validations: { required: true }
+  - type: dropdown
+    id: ecosystem
+    attributes:
+      label: Ecosystem
+      options: [Steam, Xbox / Game Pass, Ubisoft Connect, EA app, Epic Games Launcher, Battle.net, Other]
+    validations: { required: true }
+  - type: input
+    id: game
+    attributes: { label: Game }
+    validations: { required: true }
+  - type: input
+    id: anticheat
+    attributes: { label: Anti-cheat if known }
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options: [Pass, Fail, Partial / warning]
+    validations: { required: true }
+  - type: textarea
+    id: notes
+    attributes: { label: Notes }

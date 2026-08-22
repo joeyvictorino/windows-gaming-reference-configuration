@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release ZIP and SHA-256
+        shell: pwsh
+        run: |
+          $name = "windows-gaming-reference-configuration-$env:GITHUB_REF_NAME"
+          New-Item -ItemType Directory -Path dist | Out-Null
+
+          $items = Get-ChildItem -Force |
+            Where-Object { $_.Name -notin @('.git','dist') }
+
+          Compress-Archive -Path $items.FullName `
+            -DestinationPath "dist\$name.zip" `
+            -CompressionLevel Optimal
+
+          $hash = Get-FileHash "dist\$name.zip" -Algorithm SHA256
+          "$($hash.Hash)  $name.zip" |
+            Set-Content "dist\$name.zip.sha256" -Encoding ascii
+
+      - name: Generate GitHub build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: 'dist/*.zip'
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" `
+            "dist\windows-gaming-reference-configuration-$env:GITHUB_REF_NAME.zip" `
+            "dist\windows-gaming-reference-configuration-$env:GITHUB_REF_NAME.zip.sha256" `
+            --generate-notes `
+            --title "$env:GITHUB_REF_NAME"
