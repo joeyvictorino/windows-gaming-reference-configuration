@@ -274,7 +274,7 @@ function Test-WgrcWinGetConfiguration {
         return $false
     }
 
-    & winget.exe configure validate -f $Path | Out-Null
+    & winget.exe configure show -f $Path --disable-interactivity | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
 
@@ -286,10 +286,10 @@ function Invoke-WgrcWinGetConfiguration {
 
     if (-not (Test-WgrcWinGetConfiguration -Path $Path)) {
         if ($Optional) {
-            Write-Warning "Optional WinGet configuration failed validation: $Path"
+            Write-Warning "Optional WinGet configuration failed resolution: $Path"
             return $false
         }
-        throw "WinGet configuration failed validation: $Path"
+        throw "WinGet configuration failed resolution: $Path"
     }
 
     Write-Host "Applying WinGet Configuration: $Path" -ForegroundColor Cyan
@@ -1434,4 +1434,5 @@ Export-ModuleMember -Function `
     Invoke-WgrcGames, `
     Invoke-WgrcCollect, `
     Invoke-WgrcMicrosoftTools
+
 
