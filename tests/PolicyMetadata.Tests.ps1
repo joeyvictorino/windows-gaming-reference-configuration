@@ -1,57 +1,73 @@
-$root = Split-Path $PSScriptRoot -Parent
-$data = Import-PowerShellDataFile (Join-Path $root 'configuration\policies.psd1')
-
 Describe 'Policy metadata' {
+
+    BeforeAll {
+        $script:Root = Split-Path $PSScriptRoot -Parent
+        $script:PolicyData = Import-PowerShellDataFile (
+            Join-Path $script:Root 'configuration\policies.psd1'
+        )
+        $script:Policies = @($script:PolicyData.Policies)
+    }
+
     It 'contains a meaningful curated set' {
-        @($data.Policies).Count | Should -BeGreaterThan 20
+        $script:Policies.Count | Should -BeGreaterThan 20
     }
 
     It 'contains only unique IDs' {
-        $ids = @($data.Policies | ForEach-Object Id)
+        $ids = @($script:Policies | ForEach-Object { $_.Id })
         @($ids | Select-Object -Unique).Count | Should -Be $ids.Count
     }
 
-    foreach ($policy in $data.Policies) {
-        Context $policy.Id {
-            It 'declares a Microsoft-native mechanism' {
-                $policy.Mechanism | Should -BeIn @('LGPO','Preference')
-            }
+    It 'gives every policy complete metadata' {
+        foreach ($policy in $script:Policies) {
 
-            It 'has a primary source or native Settings reference' {
-                [string]::IsNullOrWhiteSpace([string]$policy.Source) | Should -BeFalse
-            }
+            $policy.Mechanism |
+                Should -BeIn @('LGPO','Preference') `
+                -Because "$($policy.Id) must declare its mechanism"
 
-            It 'has a reason' {
-                [string]::IsNullOrWhiteSpace([string]$policy.Reason) | Should -BeFalse
-            }
+            [string]::IsNullOrWhiteSpace([string]$policy.Source) |
+                Should -BeFalse `
+                -Because "$($policy.Id) must declare a public source"
 
-            It 'declares a performance claim' {
-                $policy.ContainsKey('PerformanceClaim') | Should -BeTrue
-            }
+            [string]::IsNullOrWhiteSpace([string]$policy.Reason) |
+                Should -BeFalse `
+                -Because "$($policy.Id) must explain why it exists"
 
-            It 'declares supported editions' {
-                @($policy.Editions).Count | Should -BeGreaterThan 0
-            }
+            $policy.ContainsKey('PerformanceClaim') |
+                Should -BeTrue `
+                -Because "$($policy.Id) must make its performance claim explicit"
 
-            It 'has an explicit state target' {
-                [string]::IsNullOrWhiteSpace([string]$policy.Key) | Should -BeFalse
-                [string]::IsNullOrWhiteSpace([string]$policy.ValueName) | Should -BeFalse
-            }
+            @($policy.Editions).Count |
+                Should -BeGreaterThan 0 `
+                -Because "$($policy.Id) must declare supported editions"
+
+            [string]::IsNullOrWhiteSpace([string]$policy.Key) |
+                Should -BeFalse `
+                -Because "$($policy.Id) must declare a state path"
+
+            [string]::IsNullOrWhiteSpace([string]$policy.ValueName) |
+                Should -BeFalse `
+                -Because "$($policy.Id) must declare a value name"
 
             if ($policy.Mechanism -eq 'LGPO') {
-                It 'is explicitly a policy-backed setting' {
-                    # Most policy values live under SOFTWARE\Policies. Some Windows
-                    # policy-backed paths vary, but all WGRC LGPO entries currently use Policies.
-                    $policy.Key | Should -Match '^SOFTWARE\\Policies\\'
-                }
+                $policy.Key |
+                    Should -Match '^SOFTWARE\\Policies\\' `
+                    -Because "$($policy.Id) is declared as policy-backed"
             }
         }
     }
 
     It 'uses direct preferences only for the intentionally small preference set' {
-        $preferences = @($data.Policies | Where-Object Mechanism -eq 'Preference')
-        @($preferences.Id) | Should -Contain 'gaming.game-mode'
-        @($preferences.Id) | Should -Contain 'qol.file-extensions'
+        $preferences = @(
+            $script:Policies |
+            Where-Object { $_.Mechanism -eq 'Preference' }
+        )
+
+        @($preferences | ForEach-Object { $_.Id }) |
+            Should -Contain 'gaming.game-mode'
+
+        @($preferences | ForEach-Object { $_.Id }) |
+            Should -Contain 'qol.file-extensions'
+
         $preferences.Count | Should -Be 2
     }
 }
