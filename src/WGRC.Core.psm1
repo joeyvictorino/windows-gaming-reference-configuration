@@ -594,7 +594,7 @@ function Write-WgrcPlatform {
         }
     }
 
-    Write-Host ("BIOS           {0}" -f $platform.BIOS)
+    Write-Host ("BIOS           {0}" -f $Platform.BIOS)
 
     $secureBootText = if ($null -eq $Platform.SecureBoot) {
         'Unknown'
