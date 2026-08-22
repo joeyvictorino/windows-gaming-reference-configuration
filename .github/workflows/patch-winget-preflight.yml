@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
 
+# One-time repair workflow. This follow-up commit intentionally triggers it.
 jobs:
   patch:
     runs-on: windows-latest
