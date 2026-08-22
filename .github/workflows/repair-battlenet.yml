@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - '.github/workflows/repair-battlenet.yml'
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
@@ -39,16 +41,12 @@ jobs:
             Set-Content -Path $Path -Value $content -Encoding utf8
           }
 
-          # Battle.net's current WinGet manifest requires an explicit install
-          # location and does not reliably register with `winget list`/ARP.
           $packages = 'configuration/packages.psd1'
           Replace-Required `
             -Path $packages `
             -Old "        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=`$true; Reason='Battle.net ecosystem.' }," `
             -New "        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=`$true; InstallStrategy='WinGetExplicitLocation'; InstallLocation='%ProgramFiles(x86)%\Battle.net'; DetectionPath='%ProgramFiles(x86)%\Battle.net\Battle.net.exe'; Reason='Battle.net ecosystem; current WinGet manifest requires an explicit install location.' },"
 
-          # Keep Battle.net out of the generic DSC set. It has its own explicit
-          # WinGet path below so one special installer cannot fail the whole set.
           $configuration = '.config/configuration.winget'
           $configText = Get-Content $configuration -Raw
           $battleNetPattern = "(?ms)\r?\n  - type: Microsoft\.WinGet/Package\r?\n    name: BattleNet\r?\n    properties:\r?\n      id: Blizzard\.BattleNet\r?\n      source: winget\r?\n      useLatest: true\r?\n    metadata:\r?\n      description: Install Battle\.net\r?\n?"
