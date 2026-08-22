@@ -274,6 +274,8 @@ function Test-WgrcWinGetConfiguration {
         return $false
     }
 
+    # DSC v3 native resources can produce advisory `validate` S_FALSE results
+    # when module metadata is omitted. Resolve the resources non-mutatingly.
     & winget.exe configure show -f $Path --disable-interactivity | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
@@ -592,7 +594,7 @@ function Write-WgrcPlatform {
         }
     }
 
-    Write-Host ("BIOS           {0}" -f $Platform.BIOS)
+    Write-Host ("BIOS           {0}" -f $platform.BIOS)
 
     $secureBootText = if ($null -eq $Platform.SecureBoot) {
         'Unknown'
@@ -1434,5 +1436,3 @@ Export-ModuleMember -Function `
     Invoke-WgrcGames, `
     Invoke-WgrcCollect, `
     Invoke-WgrcMicrosoftTools
-
-
