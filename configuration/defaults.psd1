@@ -2,7 +2,7 @@
     ProjectName = 'Windows Gaming Reference Configuration'
     ShortName = 'WGRC'
     Version = '0.1'
-    SupportedDisplayVersion = '0.1'
+    SupportedDisplayVersion = '25H2'
     MinimumBuild = 26200
 
     DataRoot = '%ProgramData%\WGRC'
