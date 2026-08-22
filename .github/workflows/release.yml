@@ -24,19 +24,18 @@ jobs:
           Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
 
-      - name: Pin known-good WinGet for DSC v3 validation
+      - name: Prepare current WinGet for DSC v3 resolution
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           Install-PackageProvider -Name NuGet -Force | Out-Null
           Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
           Import-Module Microsoft.WinGet.Client
-          Repair-WinGetPackageManager -Version "1.28.240" -Force
+          Repair-WinGetPackageManager -Force -Latest
           $version = winget --version
           if ($LASTEXITCODE -ne 0) {
-            throw "WinGet pin failed."
-          }
-          if ($version -ne 'v1.28.240') {
-            throw "Expected WinGet v1.28.240, got $version"
+            throw "WinGet update failed."
           }
           winget configure --enable
           if ($LASTEXITCODE -ne 0) {
@@ -46,7 +45,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Microsoft.DSC prerequisite installation failed."
           }
-          Write-Host "Validating with WinGet $version"
+          Write-Host "Resolving configurations with WinGet $version"
 
       - name: PSScriptAnalyzer gate
         shell: pwsh
@@ -93,21 +92,21 @@ jobs:
             throw "Windows PowerShell parser failed."
           }
 
-      - name: Validate WinGet configurations
+      - name: Resolve WinGet configurations
         shell: pwsh
         run: |
           if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
             throw "winget.exe is unavailable on the release runner."
           }
 
-          winget configure validate -f .\.config\configuration.winget
+          winget configure show -f .\.config\configuration.winget --disable-interactivity
           if ($LASTEXITCODE -ne 0) {
-            throw "Gaming WinGet Configuration validation failed."
+            throw "Gaming WinGet Configuration resolution failed."
           }
 
-          winget configure validate -f .\.config\office.winget
+          winget configure show -f .\.config\office.winget --disable-interactivity
           if ($LASTEXITCODE -ne 0) {
-            throw "Office WinGet Configuration validation failed."
+            throw "Office WinGet Configuration resolution failed."
           }
 
       - name: Build release ZIP and SHA-256
