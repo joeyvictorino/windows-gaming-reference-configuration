@@ -200,6 +200,19 @@ function Get-WgrcPackageInstalled {
         ).Count -gt 0)
     }
 
+    # Some vendor installers do not expose a stable WinGet/ARP registration.
+    # For explicitly declared exceptions, executable presence is the durable
+    # postcondition. Environment-variable paths keep the data portable.
+    if ($Package.ContainsKey('DetectionPath')) {
+        $detectionPath = [Environment]::ExpandEnvironmentVariables(
+            [string]$Package.DetectionPath
+        )
+
+        if (Test-Path -LiteralPath $detectionPath -PathType Leaf) {
+            return $true
+        }
+    }
+
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
         return $false
     }
@@ -252,6 +265,44 @@ function Install-WgrcMicrosoftStorePackage {
     }
 
     return $true
+}
+
+function Install-WgrcWingetPackageWithLocation {
+    param([Parameter(Mandatory)]$Package)
+
+    if (-not $Package.ContainsKey('InstallLocation')) {
+        throw "Explicit-location package is missing InstallLocation: $($Package.Id)"
+    }
+
+    if (Get-WgrcPackageInstalled -Package $Package) {
+        Write-Host ("PASS  {0}" -f $Package.Name) -ForegroundColor Green
+        return $true
+    }
+
+    $location = [Environment]::ExpandEnvironmentVariables(
+        [string]$Package.InstallLocation
+    )
+
+    Write-Host "Ensuring explicit-location package: $($Package.Name) [$($Package.Id)]"
+    Write-Host "Install location: $location" -ForegroundColor DarkGray
+
+    & winget.exe install --id $Package.Id --exact --source $Package.Source `
+        --location $location `
+        --accept-source-agreements --accept-package-agreements `
+        --disable-interactivity
+
+    $exitCode = $LASTEXITCODE
+    $present = Get-WgrcPackageInstalled -Package $Package
+
+    if ($present) {
+        if ($exitCode -ne 0) {
+            Write-Warning "$($Package.Name) returned WinGet exit code $exitCode, but the declared executable postcondition is present."
+        }
+        return $true
+    }
+
+    Write-Warning "$($Package.Name) did not satisfy its executable postcondition. WinGet exit code: $exitCode"
+    return $false
 }
 
 function Initialize-WgrcWinGetConfiguration {
@@ -902,6 +953,14 @@ function Invoke-WgrcApply {
         Initialize-WgrcWinGetConfiguration
         $configurationPath = Join-Path $Root '.config\configuration.winget'
         $configOk = Invoke-WgrcWinGetConfiguration -Path $configurationPath
+
+        Write-WgrcHeading 'Packages requiring explicit install location'
+        foreach ($package in $config.PackageData.Packages) {
+            if (-not $package.ContainsKey('InstallStrategy')) { continue }
+            if ($package.InstallStrategy -ne 'WinGetExplicitLocation') { continue }
+
+            [void](Install-WgrcWingetPackageWithLocation -Package $package)
+        }
 
         Write-WgrcHeading 'Xbox / Microsoft Store'
         foreach ($item in Get-WgrcMicrosoftGamingSubstrateState -Substrate $config.PackageData.MicrosoftGamingSubstrate) {
