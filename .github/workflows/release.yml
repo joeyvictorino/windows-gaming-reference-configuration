@@ -76,11 +76,6 @@ jobs:
             throw "winget.exe is unavailable on the release runner."
           }
 
-          winget configure --enable --disable-interactivity
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not enable WinGet Configuration."
-          }
-
           winget configure validate -f .\.config\configuration.winget
           if ($LASTEXITCODE -ne 0) {
             throw "Gaming WinGet Configuration validation failed."
