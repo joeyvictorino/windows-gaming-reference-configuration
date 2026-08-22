@@ -21,6 +21,21 @@ jobs:
           Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
 
+      - name: Update WinGet for DSC v3 validation
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          Install-PackageProvider -Name NuGet -Force | Out-Null
+          Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
+          Import-Module Microsoft.WinGet.Client
+          Repair-WinGetPackageManager -Force -Latest
+          $version = winget --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "WinGet update failed."
+          }
+          Write-Host "Validating with WinGet $version"
+
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
