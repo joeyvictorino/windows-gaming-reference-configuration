@@ -261,7 +261,7 @@ function Initialize-WgrcWinGetConfiguration {
 
     # Microsoft exposes configuration-component enablement directly on winget.
     # This is the supported bootstrap for the WinGet Configuration processor.
-    & winget.exe configure --enable --disable-interactivity | Out-Null
+    & winget.exe configure --enable | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "WinGet Configuration components could not be enabled. Exit code: $LASTEXITCODE"
     }
@@ -1434,3 +1434,4 @@ Export-ModuleMember -Function `
     Invoke-WgrcGames, `
     Invoke-WgrcCollect, `
     Invoke-WgrcMicrosoftTools
+
