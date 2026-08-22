@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - '.github/workflows/patch-winget-preflight.yml'
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
 
-# One-time repair workflow. This follow-up commit intentionally triggers it.
+# One-time repair workflow. Remove after the repair commit lands.
 jobs:
   patch:
     runs-on: windows-latest
