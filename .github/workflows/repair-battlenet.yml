@@ -1,0 +1,195 @@
+name: Repair Battle.net Handling
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/repair-battlenet.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Battle.net install and detection
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Replace-Required {
+            param(
+              [Parameter(Mandatory)][string]$Path,
+              [Parameter(Mandatory)][string]$Old,
+              [Parameter(Mandatory)][string]$New
+            )
+
+            $content = Get-Content $Path -Raw
+            if (-not $content.Contains($Old)) {
+              throw "Expected text was not found in $Path"
+            }
+
+            $content = $content.Replace($Old, $New)
+            Set-Content -Path $Path -Value $content -Encoding utf8
+          }
+
+          # Battle.net's current WinGet manifest requires an explicit install
+          # location and does not reliably register with `winget list`/ARP.
+          $packages = 'configuration/packages.psd1'
+          Replace-Required `
+            -Path $packages `
+            -Old "        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=`$true; Reason='Battle.net ecosystem.' }," `
+            -New "        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=`$true; InstallStrategy='WinGetExplicitLocation'; InstallLocation='%ProgramFiles(x86)%\Battle.net'; DetectionPath='%ProgramFiles(x86)%\Battle.net\Battle.net.exe'; Reason='Battle.net ecosystem; current WinGet manifest requires an explicit install location.' },"
+
+          # Keep Battle.net out of the generic DSC set. It has its own explicit
+          # WinGet path below so one special installer cannot fail the whole set.
+          $configuration = '.config/configuration.winget'
+          $configText = Get-Content $configuration -Raw
+          $battleNetPattern = "(?ms)\r?\n  - type: Microsoft\.WinGet/Package\r?\n    name: BattleNet\r?\n    properties:\r?\n      id: Blizzard\.BattleNet\r?\n      source: winget\r?\n      useLatest: true\r?\n    metadata:\r?\n      description: Install Battle\.net\r?\n?"
+          $matches = [regex]::Matches($configText, $battleNetPattern)
+          if ($matches.Count -ne 1) {
+            throw "Expected exactly one Battle.net DSC resource, found $($matches.Count)."
+          }
+          $configText = [regex]::Replace($configText, $battleNetPattern, "`r`n", 1)
+          Set-Content -Path $configuration -Value $configText.TrimEnd() -Encoding utf8
+
+          $core = 'src/WGRC.Core.psm1'
+
+          $oldDetection = @'
+    if ($Package.ContainsKey('DetectionAppxPattern')) {
+        return (@(
+            Get-AppxPackage -Name $Package.DetectionAppxPattern -ErrorAction SilentlyContinue
+        ).Count -gt 0)
+    }
+
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+'@
+          $newDetection = @'
+    if ($Package.ContainsKey('DetectionAppxPattern')) {
+        return (@(
+            Get-AppxPackage -Name $Package.DetectionAppxPattern -ErrorAction SilentlyContinue
+        ).Count -gt 0)
+    }
+
+    # Some vendor installers do not expose a stable WinGet/ARP registration.
+    # For those explicitly declared exceptions, executable presence is the
+    # durable postcondition. Environment-variable paths keep the data portable.
+    if ($Package.ContainsKey('DetectionPath')) {
+        $detectionPath = [Environment]::ExpandEnvironmentVariables(
+            [string]$Package.DetectionPath
+        )
+
+        if (Test-Path -LiteralPath $detectionPath -PathType Leaf) {
+            return $true
+        }
+    }
+
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+'@
+          Replace-Required -Path $core -Old $oldDetection -New $newDetection
+
+          $installerAnchor = @'
+function Initialize-WgrcWinGetConfiguration {
+'@
+          $explicitInstaller = @'
+function Install-WgrcWingetPackageWithLocation {
+    param([Parameter(Mandatory)]$Package)
+
+    if (-not $Package.ContainsKey('InstallLocation')) {
+        throw "Explicit-location package is missing InstallLocation: $($Package.Id)"
+    }
+
+    if (Get-WgrcPackageInstalled -Package $Package) {
+        Write-Host ("PASS  {0}" -f $Package.Name) -ForegroundColor Green
+        return $true
+    }
+
+    $location = [Environment]::ExpandEnvironmentVariables(
+        [string]$Package.InstallLocation
+    )
+
+    Write-Host "Ensuring explicit-location package: $($Package.Name) [$($Package.Id)]"
+    Write-Host "Install location: $location" -ForegroundColor DarkGray
+
+    & winget.exe install --id $Package.Id --exact --source $Package.Source `
+        --location $location `
+        --accept-source-agreements --accept-package-agreements `
+        --disable-interactivity
+
+    $exitCode = $LASTEXITCODE
+    $present = Get-WgrcPackageInstalled -Package $Package
+
+    if ($present) {
+        if ($exitCode -ne 0) {
+            Write-Warning "$($Package.Name) returned WinGet exit code $exitCode, but the declared executable postcondition is present."
+        }
+        return $true
+    }
+
+    Write-Warning "$($Package.Name) did not satisfy its executable postcondition. WinGet exit code: $exitCode"
+    return $false
+}
+
+function Initialize-WgrcWinGetConfiguration {
+'@
+          Replace-Required -Path $core -Old $installerAnchor -New $explicitInstaller
+
+          $applyAnchor = @'
+        $configurationPath = Join-Path $Root '.config\configuration.winget'
+        $configOk = Invoke-WgrcWinGetConfiguration -Path $configurationPath
+
+        Write-WgrcHeading 'Xbox / Microsoft Store'
+'@
+          $applyReplacement = @'
+        $configurationPath = Join-Path $Root '.config\configuration.winget'
+        $configOk = Invoke-WgrcWinGetConfiguration -Path $configurationPath
+
+        Write-WgrcHeading 'Packages requiring explicit install location'
+        foreach ($package in $config.PackageData.Packages) {
+            if (-not $package.ContainsKey('InstallStrategy')) { continue }
+            if ($package.InstallStrategy -ne 'WinGetExplicitLocation') { continue }
+
+            [void](Install-WgrcWingetPackageWithLocation -Package $package)
+        }
+
+        Write-WgrcHeading 'Xbox / Microsoft Store'
+'@
+          Replace-Required -Path $core -Old $applyAnchor -New $applyReplacement
+
+          $tests = 'tests/Configuration.Tests.ps1'
+          $testAnchor = @'
+    It 'does not use the proof-of-concept DSC registry resource' {
+'@
+          $testReplacement = @'
+    It 'handles Battle.net outside the generic DSC package set' {
+        $battleNet = $script:PackageData.Packages |
+            Where-Object { $_.Id -eq 'Blizzard.BattleNet' } |
+            Select-Object -First 1
+
+        $battleNet | Should -Not -BeNullOrEmpty
+        $battleNet.InstallStrategy | Should -Be 'WinGetExplicitLocation'
+        $battleNet.InstallLocation | Should -Be '%ProgramFiles(x86)%\Battle.net'
+        $battleNet.DetectionPath | Should -Be '%ProgramFiles(x86)%\Battle.net\Battle.net.exe'
+        $script:ConfigText | Should -Not -Match 'Blizzard\.BattleNet'
+    }
+
+    It 'does not use the proof-of-concept DSC registry resource' {
+'@
+          Replace-Required -Path $tests -Old $testAnchor -New $testReplacement
+
+      - name: Commit repair and remove one-time workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'Joey Victorino'
+          git config user.email '6811753+joeyvictorino@users.noreply.github.com'
+          git add configuration/packages.psd1 .config/configuration.winget src/WGRC.Core.psm1 tests/Configuration.Tests.ps1
+          git rm .github/workflows/repair-battlenet.yml
+          git commit -m 'fix: handle Battle.net explicit install location'
+          git push origin HEAD:main
