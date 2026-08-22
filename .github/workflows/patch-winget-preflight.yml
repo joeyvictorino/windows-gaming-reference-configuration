@@ -1,0 +1,123 @@
+name: Patch WinGet Preflight
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/patch-winget-preflight.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch runtime and CI WinGet checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Replace-Required {
+            param(
+              [Parameter(Mandatory)][string]$Path,
+              [Parameter(Mandatory)][string]$Old,
+              [Parameter(Mandatory)][string]$New
+            )
+            $content = Get-Content $Path -Raw
+            if (-not $content.Contains($Old)) {
+              throw "Expected text was not found in $Path"
+            }
+            $content = $content.Replace($Old, $New)
+            Set-Content -Path $Path -Value $content -Encoding utf8
+          }
+
+          # Runtime: `configure validate` returns S_FALSE for valid native DSC v3
+          # resources that omit module metadata. `configure show` is the correct
+          # non-mutating resource-resolution gate for this configuration form.
+          Replace-Required `
+            -Path 'src/WGRC.Core.psm1' `
+            -Old '& winget.exe configure validate -f $Path | Out-Null' `
+            -New '& winget.exe configure show -f $Path --disable-interactivity | Out-Null'
+
+          # Remove the temporary blanket WinGet 1.29 block. Current releases
+          # should be judged by actual configuration resolution rather than a
+          # broad version-range deny list.
+          $entry = 'WindowsGamingReference.ps1'
+          $entryContent = Get-Content $entry -Raw
+          $pattern = "(?s)    'Apply' \{\r?\n        if \(Get-Command winget\.exe -ErrorAction SilentlyContinue\) \{.*?\r?\n        Invoke-WgrcApply"
+          $replacement = "    'Apply' {`r`n        Invoke-WgrcApply"
+          $matches = [regex]::Matches($entryContent, $pattern)
+          if ($matches.Count -ne 1) {
+            throw "Expected exactly one temporary WinGet version gate, found $($matches.Count)."
+          }
+          $entryContent = [regex]::Replace($entryContent, $pattern, $replacement, 1)
+          Set-Content -Path $entry -Value $entryContent -Encoding utf8
+
+          foreach ($workflow in @('.github/workflows/test.yml', '.github/workflows/release.yml')) {
+            $content = Get-Content $workflow -Raw
+
+            $content = $content.Replace(
+              'Pin known-good WinGet for DSC v3 validation',
+              'Prepare current WinGet for DSC v3 resolution'
+            )
+            $content = $content.Replace(
+              'Repair-WinGetPackageManager -Version "1.28.240" -Force',
+              'Repair-WinGetPackageManager -Force -Latest'
+            )
+
+            $versionBlock = @'
+          if ($version -ne 'v1.28.240') {
+            throw "Expected WinGet v1.28.240, got $version"
+          }
+'@
+            $content = $content.Replace($versionBlock, '')
+
+            $content = $content.Replace(
+              'winget configure validate -f .\.config\configuration.winget',
+              'winget configure show -f .\.config\configuration.winget --disable-interactivity'
+            )
+            $content = $content.Replace(
+              'winget configure validate -f .\.config\office.winget',
+              'winget configure show -f .\.config\office.winget --disable-interactivity'
+            )
+            $content = $content.Replace(
+              'Gaming WinGet Configuration validation failed.',
+              'Gaming WinGet Configuration resolution failed.'
+            )
+            $content = $content.Replace(
+              'Office WinGet Configuration validation failed.',
+              'Office WinGet Configuration resolution failed.'
+            )
+            $content = $content.Replace(
+              'Validate WinGet gaming configuration',
+              'Resolve WinGet configurations'
+            )
+            $content = $content.Replace(
+              'Validate WinGet configurations',
+              'Resolve WinGet configurations'
+            )
+            $content = $content.Replace(
+              'Validating with WinGet $version',
+              'Resolving configurations with WinGet $version'
+            )
+
+            Set-Content -Path $workflow -Value $content -Encoding utf8
+          }
+
+      - name: Commit fixes
+        shell: pwsh
+        run: |
+          git config user.name 'Joey Victorino'
+          git config user.email '6811753+joeyvictorino@users.noreply.github.com'
+          git add WindowsGamingReference.ps1 src/WGRC.Core.psm1 .github/workflows/test.yml .github/workflows/release.yml
+          if (git diff --cached --quiet) {
+            throw 'No WinGet preflight changes were produced.'
+          }
+          git commit -m 'fix: use resource resolution for DSC v3 preflight'
+          git push origin HEAD:main
