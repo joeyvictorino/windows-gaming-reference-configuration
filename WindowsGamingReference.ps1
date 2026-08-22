@@ -23,6 +23,21 @@ switch ($Command) {
         Invoke-WgrcPlan -Root $PSScriptRoot
     }
     'Apply' {
+        if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
+            $wingetText = (& winget.exe --version).Trim()
+            try {
+                $wingetVersion = [version]($wingetText.TrimStart('v'))
+            }
+            catch {
+                throw "WGRC could not parse the installed WinGet version: $wingetText"
+            }
+
+            if ($wingetVersion -ge [version]'1.29.0' -and
+                $wingetVersion -lt [version]'1.30.0') {
+                throw "WGRC blocks WinGet $wingetText because WinGet 1.29 has a known DSC v3 configuration regression. Install the known-good WinGet 1.28.240 with: Repair-WinGetPackageManager -Version '1.28.240' -Force"
+            }
+        }
+
         Invoke-WgrcApply -Root $PSScriptRoot -AllowManagedDevice:$AllowManagedDevice
     }
     'Verify' {
