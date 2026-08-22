@@ -24,6 +24,21 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
+          function Read-Normalized {
+            param([Parameter(Mandatory)][string]$Path)
+            return (Get-Content $Path -Raw).Replace("`r`n", "`n")
+          }
+
+          function Write-Normalized {
+            param(
+              [Parameter(Mandatory)][string]$Path,
+              [Parameter(Mandatory)][string]$Content
+            )
+            $resolved = (Resolve-Path $Path).Path
+            [System.IO.File]::WriteAllText($resolved, $Content, $utf8NoBom)
+          }
 
           function Replace-Required {
             param(
@@ -32,13 +47,14 @@ jobs:
               [Parameter(Mandatory)][string]$New
             )
 
-            $content = Get-Content $Path -Raw
-            if (-not $content.Contains($Old)) {
+            $content = Read-Normalized $Path
+            $oldNormalized = $Old.Replace("`r`n", "`n")
+            $newNormalized = $New.Replace("`r`n", "`n")
+            if (-not $content.Contains($oldNormalized)) {
               throw "Expected text was not found in $Path"
             }
 
-            $content = $content.Replace($Old, $New)
-            Set-Content -Path $Path -Value $content -Encoding utf8
+            Write-Normalized $Path ($content.Replace($oldNormalized, $newNormalized))
           }
 
           $packages = 'configuration/packages.psd1'
@@ -48,14 +64,14 @@ jobs:
             -New "        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=`$true; InstallStrategy='WinGetExplicitLocation'; InstallLocation='%ProgramFiles(x86)%\Battle.net'; DetectionPath='%ProgramFiles(x86)%\Battle.net\Battle.net.exe'; Reason='Battle.net ecosystem; current WinGet manifest requires an explicit install location.' },"
 
           $configuration = '.config/configuration.winget'
-          $configText = Get-Content $configuration -Raw
-          $battleNetPattern = "(?ms)\r?\n  - type: Microsoft\.WinGet/Package\r?\n    name: BattleNet\r?\n    properties:\r?\n      id: Blizzard\.BattleNet\r?\n      source: winget\r?\n      useLatest: true\r?\n    metadata:\r?\n      description: Install Battle\.net\r?\n?"
+          $configText = Read-Normalized $configuration
+          $battleNetPattern = "(?ms)\n  - type: Microsoft\.WinGet/Package\n    name: BattleNet\n    properties:\n      id: Blizzard\.BattleNet\n      source: winget\n      useLatest: true\n    metadata:\n      description: Install Battle\.net\n?"
           $matches = [regex]::Matches($configText, $battleNetPattern)
           if ($matches.Count -ne 1) {
             throw "Expected exactly one Battle.net DSC resource, found $($matches.Count)."
           }
-          $configText = [regex]::Replace($configText, $battleNetPattern, "`r`n", 1)
-          Set-Content -Path $configuration -Value $configText.TrimEnd() -Encoding utf8
+          $configText = [regex]::Replace($configText, $battleNetPattern, "`n", 1)
+          Write-Normalized $configuration $configText.TrimEnd()
 
           $core = 'src/WGRC.Core.psm1'
 
