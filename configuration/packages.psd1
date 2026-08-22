@@ -10,7 +10,7 @@
         @{ Id='ElectronicArts.EADesktop'; Name='EA app'; Source='winget'; Tier='Launcher'; RequiredForReady=$true; Reason='EA ecosystem.' },
         @{ Id='EpicGames.EpicGamesLauncher'; Name='Epic Games Launcher'; Source='winget'; Tier='Launcher'; RequiredForReady=$true; Reason='Epic ecosystem.' },
         @{ Id='Ubisoft.Connect'; Name='Ubisoft Connect'; Source='winget'; Tier='Launcher'; RequiredForReady=$true; Reason='Ubisoft ecosystem. Never bypass WinGet hash failures.' },
-        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=$true; Reason='Battle.net ecosystem.' },
+        @{ Id='Blizzard.BattleNet'; Name='Battle.net'; Source='winget'; Tier='Launcher'; RequiredForReady=$true; InstallStrategy='WinGetExplicitLocation'; InstallLocation='%ProgramFiles(x86)%\Battle.net'; DetectionPath='%ProgramFiles(x86)%\Battle.net\Battle.net.exe'; Reason='Battle.net ecosystem; current WinGet manifest requires an explicit install location.' },
         @{ Id='9MV0B5HZVK9Z'; Name='Xbox app'; Source='msstore'; Tier='Launcher'; RequiredForReady=$true; DetectionAppxPattern='*GamingApp*'; Reason='Xbox / Game Pass ecosystem.' },
         @{ Id='Microsoft.Office'; Name='Microsoft 365 / Office'; Source='winget'; Tier='Productivity'; RequiredForReady=$false; Reason='Reference-machine productivity requirement; not a gaming readiness blocker.' }
     )
