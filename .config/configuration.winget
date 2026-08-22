@@ -94,12 +94,3 @@ resources:
       useLatest: true
     metadata:
       description: Install Ubisoft Connect; fail safely on package-integrity mismatch
-
-  - type: Microsoft.WinGet/Package
-    name: BattleNet
-    properties:
-      id: Blizzard.BattleNet
-      source: winget
-      useLatest: true
-    metadata:
-      description: Install Battle.net
