@@ -1,0 +1,45 @@
+name: Patch WGRC Runtime
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/patch-runtime.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch WinGet bootstrap
+        shell: pwsh
+        run: |
+          $path = 'src/WGRC.Core.psm1'
+          $content = Get-Content $path -Raw
+          $old = '& winget.exe configure --enable --disable-interactivity | Out-Null'
+          $new = '& winget.exe configure --enable | Out-Null'
+          if (-not $content.Contains($old)) {
+            throw 'Expected WinGet bootstrap invocation was not found.'
+          }
+          $content = $content.Replace($old, $new)
+          Set-Content -Path $path -Value $content -Encoding utf8
+
+      - name: Commit runtime fix
+        shell: pwsh
+        run: |
+          git config user.name 'Jose Victorino'
+          git config user.email 'joey.victorino@gmail.com'
+          git add src/WGRC.Core.psm1
+          if (git diff --cached --quiet) {
+            Write-Host 'No runtime change required.'
+            exit 0
+          }
+          git commit -m 'fix: correct WinGet configuration bootstrap'
+          git push origin HEAD:main
