@@ -26,7 +26,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          Install-PackageProvider -Name NuGet -Force | Out-Null
           Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
           Import-Module Microsoft.WinGet.Client
           Repair-WinGetPackageManager -Force -Latest
